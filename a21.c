@@ -1,40 +1,59 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "offline_schedulers.h"
 
 int main() {
+    // Define example commands for testing
     Process processes[] = {
-        {"cd ..", false, false, 0, 0, 0, 0, 0, false, 0, 1, 1, 0},
-        {"cd ./..", false, false, 0, 0, 0, 0, 0, false, 0, 2, 2, 0},
-        {"Process3", false, false, 0, 0, 0, 0, 0, false, 0, 1, 1, 0}
+        {"sleep 1", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"sleep 2", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"sleep 3", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"sleep 4", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"echo 'Hello, World!'", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"ls -l", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"sleep 3 && echo 'Done sleeping 3'", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"sleep 4 && echo 'Done sleeping 4'", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"(sleep 5 &)", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"(sleep 6 &)", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"nonexistent_command", false, false, 0, 0, 0, 0, 0, false, 0},
+        {"sleep 1 && non_existent_command", false, false, 0, 0, 0, 0, 0, false, 0}
     };
-    int n = sizeof(processes) / sizeof(Process);
 
-    // Test FCFS
-    printf("Testing FCFS Scheduler...\n");
+    int n = sizeof(processes) / sizeof(processes[0]);
+
+    // FCFS Scheduling
+    printf("Running FCFS Scheduling...\n");
     FCFS(processes, n);
 
-    // Reset the state of processes for next test
+    // Reset process states
     for (int i = 0; i < n; i++) {
         processes[i].finished = false;
+        processes[i].error = false;
+        processes[i].start_time = 0;
+        processes[i].completion_time = 0;
+        processes[i].turnaround_time = 0;
+        processes[i].waiting_time = 0;
+        processes[i].response_time = 0;
         processes[i].started = false;
-        processes[i].remaining_time = processes[i].burst_time;
     }
 
-    // Test Round Robin with a time quantum of 1
-    printf("Testing Round Robin Scheduler...\n");
-    RoundRobin(processes, n, 1);
+    // Round Robin Scheduling with a quantum of 1000 ms
+    printf("Running Round Robin Scheduling...\n");
+    RoundRobin(processes, n, 1000);
 
-    // Reset the state of processes for next test
+    // Reset process states
     for (int i = 0; i < n; i++) {
         processes[i].finished = false;
+        processes[i].error = false;
+        processes[i].start_time = 0;
+        processes[i].completion_time = 0;
+        processes[i].turnaround_time = 0;
+        processes[i].waiting_time = 0;
+        processes[i].response_time = 0;
         processes[i].started = false;
-        processes[i].remaining_time = processes[i].burst_time;
     }
 
-    // Test MLFQ with quantums 1, 2, and 4 for three different levels, and a boost time of 10
-    printf("Testing MLFQ Scheduler...\n");
-    MultiLevelFeedbackQueue(processes, n, 1, 2, 4, 10);
+    // Multi-Level Feedback Queue Scheduling with different quantums and boost time
+    printf("Running Multi-Level Feedback Queue Scheduling...\n");
+    MultiLevelFeedbackQueue(processes, n, 500, 1000, 1500, 5000);
 
     return 0;
 }
