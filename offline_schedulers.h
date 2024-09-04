@@ -114,9 +114,10 @@ void RoundRobin(Process p[], int n, int quantum) {
     write_to_csv("result_offline_RR.csv", p, n);
 }
 
-void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int quantum2) {
+void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int quantum2, int boostTime) {
     int completed = 0;
     int current_time = 0;
+    int time_since_last_boost = 0;
     
     while (completed < n) {
         for (int priority = 0; priority < 3; priority++) {
@@ -133,6 +134,7 @@ void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int
                     int execution_time = (p[i].remaining_time < quantum) ? p[i].remaining_time : quantum;
                     sleep(execution_time);
                     current_time += execution_time;
+                    time_since_last_boost += execution_time;
                     p[i].remaining_time -= execution_time;
                     
                     if (p[i].remaining_time == 0) {
@@ -148,6 +150,16 @@ void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int
                     printf("%s|%d|%d\n", p[i].command, current_time - execution_time, current_time);
                 }
             }
+        }
+        
+        // Priority boost
+        if (time_since_last_boost >= boostTime) {
+            for (int i = 0; i < n; i++) {
+                if (!p[i].finished) {
+                    p[i].priority = 0;
+                }
+            }
+            time_since_last_boost = 0;
         }
     }
     

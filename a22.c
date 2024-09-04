@@ -1,11 +1,9 @@
-// test_online_schedulers.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include "online_schedulers.h"  // Assuming the main scheduler code is in this header
+#include "online_schedulers.h"
 
 // Mock function to simulate user input for processes
 Process* mock_read_process_from_input(const char* command) {
@@ -49,9 +47,9 @@ int main() {
     printf("Testing Shortest Remaining Time First Scheduler...\n");
     ShortestRemainingTimeFirst();
 
-    // Test Online MLFQ with quantums 1, 2, and 4 for three different levels
+    // Test Online MLFQ with quantums 1, 2, and 4 for three different levels, and a boost time of 10
     printf("Testing Online MLFQ Scheduler...\n");
-    MultiLevelFeedbackQueueOnline(1, 2, 4);
+    MultiLevelFeedbackQueueOnline(1, 2, 4, 10);
 
     return 0;
 }

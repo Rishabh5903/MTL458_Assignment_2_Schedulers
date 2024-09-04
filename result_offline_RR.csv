@@ -1,4 +1,4 @@
 Command,Finished,Error,Completion Time,Turnaround Time,Waiting Time,Response Time
-Process1,Yes,No,1724836953809,1000,999,0
-Process2,Yes,No,1724836956810,3001,2999,0
-Process3,Yes,No,1724836955810,1001,1000,0
+cd ..,Yes,No,1725446972412,1000,999,0
+cd ./..,Yes,No,1725446975412,3000,2998,0
+Process3,Yes,No,1725446974412,1000,999,0

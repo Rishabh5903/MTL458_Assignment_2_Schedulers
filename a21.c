@@ -1,13 +1,11 @@
-// test_offline_schedulers.c
-
 #include <stdio.h>
 #include <stdlib.h>
-#include "offline_schedulers.h"  // Assuming the main scheduler code is in this header
+#include "offline_schedulers.h"
 
 int main() {
     Process processes[] = {
-        {"Process1", false, false, 0, 0, 0, 0, 0, false, 0, 1, 1, 0},
-        {"Process2", false, false, 0, 0, 0, 0, 0, false, 0, 2, 2, 0},
+        {"cd ..", false, false, 0, 0, 0, 0, 0, false, 0, 1, 1, 0},
+        {"cd ./..", false, false, 0, 0, 0, 0, 0, false, 0, 2, 2, 0},
         {"Process3", false, false, 0, 0, 0, 0, 0, false, 0, 1, 1, 0}
     };
     int n = sizeof(processes) / sizeof(Process);
@@ -34,9 +32,9 @@ int main() {
         processes[i].remaining_time = processes[i].burst_time;
     }
 
-    // Test MLFQ with quantums 1, 2, and 4 for three different levels
+    // Test MLFQ with quantums 1, 2, and 4 for three different levels, and a boost time of 10
     printf("Testing MLFQ Scheduler...\n");
-    MultiLevelFeedbackQueue(processes, n, 1, 2, 4);
+    MultiLevelFeedbackQueue(processes, n, 1, 2, 4, 10);
 
     return 0;
 }

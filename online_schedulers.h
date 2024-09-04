@@ -191,10 +191,11 @@ void ShortestRemainingTimeFirst() {
     write_to_csv("result_online_SRTF.csv", processes, n);
 }
 
-void MultiLevelFeedbackQueueOnline(int quantum0, int quantum1, int quantum2) {
+void MultiLevelFeedbackQueueOnline(int quantum0, int quantum1, int quantum2, int boostTime) {
     Process *processes[MAX_PROCESSES];
     int n = 0;
     int current_time = 0;
+    int time_since_last_boost = 0;
 
     while (1) {
         Process *new_process = read_process_from_input();
@@ -204,7 +205,7 @@ void MultiLevelFeedbackQueueOnline(int quantum0, int quantum1, int quantum2) {
             processes[n++] = new_process;
         }
 
-        // Execute processes based on priority and quantum
+// Execute processes based on priority and quantum
         for (int priority = 0; priority < 3; priority++) {
             int quantum = (priority == 0) ? quantum0 : (priority == 1) ? quantum1 : quantum2;
 
@@ -221,6 +222,7 @@ void MultiLevelFeedbackQueueOnline(int quantum0, int quantum1, int quantum2) {
 
                     processes[i]->remaining_time -= time_to_run;
                     current_time += time_to_run;
+                    time_since_last_boost += time_to_run;
 
                     printf("%s|%d|%d\n", processes[i]->command, current_time - time_to_run, current_time);
 
@@ -240,9 +242,20 @@ void MultiLevelFeedbackQueueOnline(int quantum0, int quantum1, int quantum2) {
                         }
                         n--;
                         i--;  // Adjust index since we removed an element
+                    } else {
+                        // Move to lower priority queue if not finished
+                        processes[i]->priority = (processes[i]->priority < 2) ? processes[i]->priority + 1 : 2;
                     }
                 }
             }
+        }
+
+        // Priority boost
+        if (time_since_last_boost >= boostTime) {
+            for (int i = 0; i < n; i++) {
+                processes[i]->priority = 0;
+            }
+            time_since_last_boost = 0;
         }
     }
 
