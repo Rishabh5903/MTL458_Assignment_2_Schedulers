@@ -6,15 +6,9 @@ int main() {
         {"sleep 1", false, false, 0, 0, 0, 0, 0, false, 0},
         {"sleep 2", false, false, 0, 0, 0, 0, 0, false, 0},
         {"sleep 3", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"sleep 4", false, false, 0, 0, 0, 0, 0, false, 0},
         {"echo 'Hello, World!'", false, false, 0, 0, 0, 0, 0, false, 0},
         {"ls -l", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"sleep 3 && echo 'Done sleeping 3'", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"sleep 4 && echo 'Done sleeping 4'", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"(sleep 5 &)", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"(sleep 6 &)", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"nonexistent_command", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"sleep 1 && non_existent_command", false, false, 0, 0, 0, 0, 0, false, 0}
+
     };
 
     int n = sizeof(processes) / sizeof(processes[0]);

@@ -1,13 +1,6 @@
 Command,Finished,Error,Completion Time,Turnaround Time,Waiting Time,Response Time
-"sleep 1",Yes,Yes,13539475,13539475,0,0
-"sleep 2",Yes,Yes,13540475,1000,0,0
-"sleep 3",Yes,Yes,13541475,1000,0,0
-"sleep 4",Yes,Yes,13542475,1000,0,0
-"echo 'Hello, World!'",Yes,No,13542477,2,0,0
-"ls -l",Yes,No,13542521,44,0,0
-"sleep 3 && echo 'Done sleeping 3'",Yes,Yes,13543522,1001,0,0
-"sleep 4 && echo 'Done sleeping 4'",Yes,Yes,13544522,1000,0,0
-"(sleep 5 &)",Yes,No,13544525,3,0,0
-"(sleep 6 &)",Yes,No,13544527,2,0,0
-"nonexistent_command",Yes,Yes,13544633,106,0,0
-"sleep 1 && non_existent_command",Yes,Yes,13545633,1000,0,0
+"sleep 1",Yes,No,3035,3035,3035,0
+"sleep 2",Yes,No,3035,3035,2035,1000
+"sleep 3",Yes,No,5001,5001,3001,2000
+"echo 'Hello, World!'",Yes,No,3001,3001,1,3000
+"ls -l",Yes,No,3035,3035,34,3001
