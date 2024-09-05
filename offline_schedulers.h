@@ -88,47 +88,6 @@ void free_queue(Queue *q) {
     free(q);
 }
 
-int execute_process(Process *p, int time_slice) {
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child process
-        char *args[] = {"/bin/sh", "-c", p->command, NULL};
-        execvp(args[0], args);
-        // If execvp fails
-        perror("execvp failed");
-        exit(1);
-    } else if (pid > 0) {
-        // Parent process
-        int status;
-        uint64_t start_time = get_current_time_ms();
-        uint64_t elapsed_time = 0;
-
-        while (elapsed_time < time_slice || time_slice == -1) {
-            if (waitpid(pid, &status, WNOHANG) != 0) {
-                // Process finished
-                if (WIFEXITED(status)) {
-                    p->finished = WEXITSTATUS(status) == 0;
-                    p->error = WEXITSTATUS(status) != 0;
-                } else {
-                    p->error = true;
-                }
-                return 1;
-            }
-            usleep(1000);  // Sleep for 1ms
-            elapsed_time = get_current_time_ms() - start_time;
-        }
-
-        // Time slice expired, process not finished
-        kill(pid, SIGSTOP);
-        p->error = true;  // Mark error if process was stopped due to time slice
-        return 0;
-    } else {
-        // Fork failed
-        perror("fork failed");
-        p->error = true;
-        return -1;
-    }
-}
 
 void write_results_to_csv(Process p[], int n, const char *filename) {
     FILE *fp = fopen(filename, "w");
@@ -155,22 +114,68 @@ void write_results_to_csv(Process p[], int n, const char *filename) {
     fclose(fp);
 }
 
+
+
+
+
 void FCFS(Process p[], int n) {
-    uint64_t start_time = get_current_time_ms();
-    uint64_t current_time = start_time;
+    uint64_t start_time = get_current_time_ms();  // Scheduler start time
+    uint64_t current_time = 0;
+
+    pid_t *process_pids = (pid_t *)malloc(n * sizeof(pid_t));
 
     for (int i = 0; i < n; i++) {
-        p[i].start_time = current_time;
-        p[i].response_time = current_time;
+        p[i].started = false;
+        p[i].finished = false;
+        p[i].completion_time = 0;
+        p[i].turnaround_time = 0;
+        p[i].waiting_time = 0;
+        p[i].response_time = 0;
+        process_pids[i] = -1;
+    }
 
-        printf("Executing: %s\n", p[i].command);
+    for (int i = 0; i < n; i++) {
+        // Set process start time and response time
+        p[i].start_time = current_time;  // Relative to global start (t=0)
+        p[i].response_time = p[i].start_time;
+        p[i].started = true;
+
+        printf("Executing: %s (Start Time: %lu ms)\n", p[i].command, p[i].start_time);
+
+        // Fork the process
+        process_pids[i] = fork();
+        if (process_pids[i] == 0) {
+            // Child process
+            char *args[] = {"/bin/sh", "-c", p[i].command, NULL};
+            execvp(args[0], args);
+            perror("execvp failed");
+            exit(1);  // Exit if execvp fails
+        } else if (process_pids[i] < 0) {
+            // Fork failed
+            perror("fork failed");
+            p[i].finished = true;
+            p[i].error = true;
+            continue;  // Move to the next process
+        }
+
+        // Parent process: wait for the child to complete
+        int status;
         uint64_t execution_start_time = get_current_time_ms();
-        execute_process(&p[i], -1);  // -1 means no time slice
-        uint64_t execution_duration = get_current_time_ms() - execution_start_time;
+        waitpid(process_pids[i], &status, 0);  // Wait for process to complete
+        uint64_t execution_end_time = get_current_time_ms();
 
-        p[i].completion_time = get_current_time_ms() - start_time; // Total time elapsed since start
-        p[i].turnaround_time = p[i].completion_time - p[i].start_time;
-        p[i].waiting_time = p[i].turnaround_time - execution_duration;
+        // Calculate process times
+        p[i].completion_time = execution_end_time - start_time;  // Relative to t=0
+        p[i].turnaround_time = p[i].completion_time - p[i].start_time;  // From start to completion
+        p[i].waiting_time = p[i].turnaround_time;  // In FCFS, waiting time == turnaround time since there's no time slice
+        p[i].burst_time = execution_end_time - execution_start_time;  // Time the process actually ran
+
+        if (WIFEXITED(status)) {
+            p[i].finished = true;
+            p[i].error = WEXITSTATUS(status) != 0;
+        } else {
+            p[i].error = true;
+        }
 
         printf("Process completed: %s\n", p[i].command);
         printf("Finished: %s\n", p[i].finished ? "Yes" : "No");
@@ -180,11 +185,18 @@ void FCFS(Process p[], int n) {
         printf("Waiting Time: %lu ms\n", p[i].waiting_time);
         printf("Response Time: %lu ms\n\n", p[i].response_time);
 
-        current_time = get_current_time_ms();
+        current_time = p[i].completion_time;  // Update current time for next process
     }
 
-    write_results_to_csv(p, n, "result_offline_FCFS.csv");
+    free(process_pids);  // Clean up the allocated memory for PIDs
+    write_results_to_csv(p, n, "result_offline_FCFS.csv");  // Write results to CSV
 }
+
+
+
+
+
+
 
 void RoundRobin(Process p[], int n, int quantum) {
     uint64_t current_time = 0;
@@ -311,10 +323,12 @@ void RoundRobin(Process p[], int n, int quantum) {
 
 
 
+
+
+
 void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int quantum2, int boostTime) {
     uint64_t current_time = 0;
     int completed = 0;
-    int *remaining_time = (int *)calloc(n, sizeof(int));
     int *current_queue = (int *)calloc(n, sizeof(int));
     uint64_t last_boost_time = 0;
 
@@ -323,11 +337,15 @@ void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int
         queues[i] = create_queue();
     }
 
+    pid_t *process_pids = (pid_t *)malloc(n * sizeof(pid_t));
     for (int i = 0; i < n; i++) {
         p[i].started = false;
-        remaining_time[i] = 1000;  // Assuming each process takes at most 1 second
-        current_queue[i] = 0;  // All processes start in the highest priority queue
-        enqueue(queues[0], i);  // Add all processes to the highest priority queue initially
+        p[i].finished = false;
+        p[i].burst_time = 0;
+        p[i].waiting_time = 0;
+        current_queue[i] = 0;  // Start all in the highest priority queue
+        enqueue(queues[0], i);  // Add to highest priority queue initially
+        process_pids[i] = -1;  // No process started yet
     }
 
     while (completed < n) {
@@ -335,64 +353,118 @@ void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int
         if (current_time - last_boost_time >= boostTime) {
             for (int i = 0; i < n; i++) {
                 if (!p[i].finished) {
-                    current_queue[i] = 0;
-                    enqueue(queues[0], i);  // Re-add processes to the highest priority queue
+                    current_queue[i] = 0;  // Move all processes back to Q0
+                    enqueue(queues[0], i);
                 }
             }
             last_boost_time = current_time;
         }
 
-        // Process each queue
+        // Iterate through each queue
         for (int queue = 0; queue < 3 && completed < n; queue++) {
             int quantum = (queue == 0) ? quantum0 : (queue == 1) ? quantum1 : quantum2;
 
             while (queues[queue]->front != NULL) {
                 int i = dequeue(queues[queue]);
-                if (i == -1) continue;
+                if (i == -1 || p[i].finished) continue;
 
-                if (!p[i].finished && remaining_time[i] > 0) {
-                    if (!p[i].started) {
-                        p[i].start_time = current_time;
-                        p[i].response_time = current_time;
-                        p[i].started = true;
-                    }
+                if (!p[i].started) {
+                    p[i].start_time = current_time;
+                    p[i].response_time = current_time;
+                    p[i].started = true;
+                }
 
-                    printf("Executing: %s (Queue %d)\n", p[i].command, queue);
-                    int result = execute_process(&p[i], quantum);
+                printf("Executing: %s (Queue %d, Time: %lu ms)\n", p[i].command, queue, current_time);
 
-                    uint64_t execution_time = get_current_time_ms() - current_time;
-                    remaining_time[i] -= execution_time;
-                    current_time += execution_time;
-
-                    if (result == 1 || remaining_time[i] <= 0) {
+                if (process_pids[i] == -1) {
+                    // Start a new process
+                    process_pids[i] = fork();
+                    if (process_pids[i] == 0) {
+                        // Child process
+                        char *args[] = {"/bin/sh", "-c", p[i].command, NULL};
+                        execvp(args[0], args);
+                        exit(1);  // Exit if execvp fails
+                    } else if (process_pids[i] < 0) {
+                        // Fork failed
+                        perror("fork failed");
                         p[i].finished = true;
-                        p[i].completion_time = current_time;
-                        p[i].turnaround_time = p[i].completion_time - p[i].start_time;
-                        p[i].waiting_time = p[i].turnaround_time - 1000;  // Assuming 1 second execution time
-
-                        printf("Process completed: %s\n", p[i].command);
-                        printf("Finished: %s\n", p[i].finished ? "Yes" : "No");
-                        printf("Error: %s\n", p[i].error ? "Yes" : "No");
-                        printf("Completion Time: %lu ms\n", p[i].completion_time);
-                        printf("Turnaround Time: %lu ms\n", p[i].turnaround_time);
-                        printf("Waiting Time: %lu ms\n", p[i].waiting_time);
-                        printf("Response Time: %lu ms\n\n", p[i].response_time);
-
+                        p[i].error = true;
                         completed++;
-                    } else if (current_queue[i] < 2) {
-                        // Move the process to a lower priority queue
-                        current_queue[i]++;
-                        enqueue(queues[current_queue[i]], i);
+                        continue;
                     }
+                } else {
+                    // Resume the process
+                    kill(process_pids[i], SIGCONT);
+                }
+
+                // Parent process: Track execution time
+                int status;
+                uint64_t start_time = get_current_time_ms();
+                uint64_t elapsed_time = 0;
+                bool process_finished = false;
+
+                while (elapsed_time < quantum) {
+                    pid_t result = waitpid(process_pids[i], &status, WNOHANG);
+                    if (result > 0) {
+                        // Process finished
+                        process_finished = true;
+                        if (WIFEXITED(status)) {
+                            p[i].finished = true;
+                            p[i].error = WEXITSTATUS(status) != 0;
+                        } else {
+                            p[i].finished = true;
+                            p[i].error = true;
+                        }
+                        elapsed_time = get_current_time_ms() - start_time;
+                        break;
+                    } else if (result < 0) {
+                        // Error occurred
+                        perror("waitpid");
+                        p[i].finished = true;
+                        p[i].error = true;
+                        process_finished = true;
+                        elapsed_time = get_current_time_ms() - start_time;
+                        break;
+                    }
+                    elapsed_time = get_current_time_ms() - start_time;
+                }
+
+                // Update burst time and current time
+                p[i].burst_time += elapsed_time;
+                current_time += elapsed_time;
+
+                if (!process_finished) {
+                    // Time quantum expired, stop the process
+                    kill(process_pids[i], SIGSTOP);
+                    if (current_queue[i] < 2) {
+                        current_queue[i]++;  // Move to lower priority queue
+                    }
+                    enqueue(queues[current_queue[i]], i);
+                } else {
+                    // Process completed
+                    p[i].completion_time = current_time;
+                    p[i].turnaround_time = p[i].completion_time - p[i].start_time;
+                    p[i].waiting_time = p[i].turnaround_time - p[i].burst_time;
+
+                    printf("Process completed: %s\n", p[i].command);
+                    printf("Finished: %s\n", p[i].finished ? "Yes" : "No");
+                    printf("Error: %s\n", p[i].error ? "Yes" : "No");
+                    printf("Completion Time: %lu ms\n", p[i].completion_time);
+                    printf("Turnaround Time: %lu ms\n", p[i].turnaround_time);
+                    printf("Waiting Time: %lu ms\n", p[i].waiting_time);
+                    printf("Burst Time: %lu ms\n", p[i].burst_time);
+
+                    completed++;
                 }
             }
         }
     }
 
+    // Clean up the resources
     for (int i = 0; i < 3; i++) {
         free_queue(queues[i]);
     }
-    free(remaining_time);
     free(current_queue);
+    free(process_pids);
     write_results_to_csv(p, n, "result_offline_MLFQ.csv");
 }
