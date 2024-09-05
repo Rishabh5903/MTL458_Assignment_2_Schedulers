@@ -227,7 +227,7 @@ void RoundRobin(Process p[], int n, int quantum) {
                 // Child process
                 char *args[] = {"/bin/sh", "-c", p[i].command, NULL};
                 execvp(args[0], args);
-                exit(1);
+                exit(1);  // Exit if execvp fails
             } else if (process_pids[i] < 0) {
                 // Fork failed
                 perror("fork failed");
@@ -259,13 +259,15 @@ void RoundRobin(Process p[], int n, int quantum) {
                     p[i].finished = true;
                     p[i].error = true;
                 }
+                elapsed_time = get_current_time_ms() - start_time;
                 break;
             } else if (result < 0) {
                 // Error occurred
                 perror("waitpid");
                 p[i].finished = true;
-                p[i].error = true;
+                p[i].error = true;  // Mark error and terminate
                 process_finished = true;
+                elapsed_time = get_current_time_ms() - start_time;
                 break;
             }
             elapsed_time = get_current_time_ms() - start_time;
@@ -305,6 +307,7 @@ void RoundRobin(Process p[], int n, int quantum) {
     // Clean up the process queue
     free_queue(ready_queue);
 }
+
 
 
 

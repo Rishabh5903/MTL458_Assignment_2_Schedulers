@@ -3,17 +3,19 @@
 int main() {
     // Define example commands for testing
     Process processes[] = {
-        {"sleep 1", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"sleep 2", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"sleep 3", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"echo 'Hello, World!'", false, false, 0, 0, 0, 0, 0, false, 0},
-        {"ls -l", false, false, 0, 0, 0, 0, 0, false, 0},
-
+        {"dd if=/dev/zero of=testfile bs=1M count=100", false, false, 0, 0, 0, 0, 0, false, 0},  // Simple loop
+        {"for i in {1..50000}; do echo 'Looping'; done", false, false, 0, 0, 0, 0, 0, false, 0},  // Loop with echo
+        {"ls -l", false, false, 0, 0, 0, 0, 0, false, 0},  // List directory contents
+        {"date", false, false, 0, 0, 0, 0, 0, false, 0},  // Print current date
+        {"echo 'Task completed!'", false, false, 0, 0, 0, 0, 0, false, 0},  // Simple echo statement
     };
 
     int n = sizeof(processes) / sizeof(processes[0]);
 
-    // FCFS Scheduling
+    // Set a small quantum to force pausing and resuming
+    int quantum = 100;  // 100 ms quantum for quick switching
+
+    // FCFS Scheduling (optional)
     printf("Running FCFS Scheduling...\n");
     FCFS(processes, n);
 
@@ -29,11 +31,11 @@ int main() {
         processes[i].started = false;
     }
 
-    // Round Robin Scheduling with a quantum of 1000 ms
+    // Round Robin Scheduling with the small quantum
     printf("Running Round Robin Scheduling...\n");
-    RoundRobin(processes, n, 1000);
+    RoundRobin(processes, n, quantum);
 
-    // Reset process states
+    // Reset process states for Multi-Level Feedback Queue (optional)
     for (int i = 0; i < n; i++) {
         processes[i].finished = false;
         processes[i].error = false;
@@ -45,9 +47,9 @@ int main() {
         processes[i].started = false;
     }
 
-    // Multi-Level Feedback Queue Scheduling with different quantums and boost time
+    // Multi-Level Feedback Queue Scheduling (optional)
     printf("Running Multi-Level Feedback Queue Scheduling...\n");
-    MultiLevelFeedbackQueue(processes, n, 500, 1000, 1500, 5000);
+    MultiLevelFeedbackQueue(processes, n, 100, 200, 300, 1000);
 
     return 0;
 }
