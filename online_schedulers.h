@@ -19,6 +19,7 @@ typedef struct {
     char command[MAX_COMMAND_LENGTH];
     bool finished;
     bool error;
+    uint64_t arrival_time;
     uint64_t start_time;
     uint64_t completion_time;
     uint64_t turnaround_time;
@@ -46,6 +47,10 @@ typedef struct {
     HistoricalData data[MAX_PROCESSES];
     int count;
 } HistoricalDataList;
+
+uint64_t scheduler_start_time;
+
+uint64_t global_time = 0;
 
 uint64_t get_current_time_ms() {
     struct timespec ts;
@@ -94,6 +99,7 @@ void add_process(ProcessList *list, const char *command, HistoricalDataList *his
     p->command[MAX_COMMAND_LENGTH - 1] = '\0';
     p->finished = false;
     p->error = false;
+    p->arrival_time = get_current_time_ms();
     p->start_time = 0;
     p->completion_time = 0;
     p->turnaround_time = 0;
@@ -111,11 +117,11 @@ void add_process(ProcessList *list, const char *command, HistoricalDataList *his
 void update_process_times(Process *p, uint64_t current_time) {
     if (!p->started) {
         p->start_time = current_time;
-        p->response_time = current_time - p->start_time;
+        p->response_time = p->start_time - p->arrival_time;
         p->started = true;
     }
     p->completion_time = current_time;
-    p->turnaround_time = p->completion_time - p->start_time;
+    p->turnaround_time = p->completion_time - p->arrival_time;
     p->waiting_time = p->turnaround_time - p->burst_time;
 }
 
@@ -183,7 +189,8 @@ void check_for_new_input_nonblocking(ProcessList *list, HistoricalDataList *hist
 }
 
 void ShortestJobFirst(ProcessList *list) {
-    uint64_t current_time = get_current_time_ms();
+    scheduler_start_time = get_current_time_ms();
+    uint64_t current_time = 0;
     int completed = 0;
     HistoricalDataList historical_data = {0};  // Store historical burst times
     FILE *csv_file = fopen("result_online_SJF.csv", "w");
@@ -191,7 +198,7 @@ void ShortestJobFirst(ProcessList *list) {
         perror("Error opening CSV file");
         return;
     }
-    fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
+    fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time,Arrival Time\n");
 
     while (1) {
         check_for_new_input_nonblocking(list, &historical_data);  // Collect new inputs during each iteration
@@ -223,14 +230,15 @@ void ShortestJobFirst(ProcessList *list) {
                     update_historical_data(&historical_data, p->command, p->burst_time);
                 }
                 // Log process data to CSV
-                fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
+                fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu,%lu\n",
                         p->command,
                         p->finished ? "Yes" : "No",
                         p->error ? "Yes" : "No",
                         p->burst_time,
                         p->turnaround_time,
                         p->waiting_time,
-                        p->response_time);
+                        p->response_time,
+                        p->arrival_time);
                 fflush(csv_file);
             }
         }
@@ -244,11 +252,9 @@ void ShortestJobFirst(ProcessList *list) {
     fclose(csv_file);
 }
 
-
-
-
 void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int quantum2, int boostTime) {
-    uint64_t current_time = get_current_time_ms();
+    scheduler_start_time = get_current_time_ms();
+    uint64_t current_time = 0;
     int completed = 0;
     uint64_t last_boost_time = current_time;
     HistoricalDataList historical_data = {0};
@@ -257,7 +263,7 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
         perror("Error opening CSV file");
         return;
     }
-    fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
+    fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time,Arrival Time\n");
 
     while (1) {
         check_for_new_input_nonblocking(list, &historical_data);
@@ -295,14 +301,15 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
                 if (!p->error) {
                     update_historical_data(&historical_data, p->command, p->burst_time);
                 }
-                fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
+                fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu,%lu\n",
                         p->command,
                         p->finished ? "Yes" : "No",
                         p->error ? "Yes" : "No",
                         p->burst_time,
                         p->turnaround_time,
                         p->waiting_time,
-                        p->response_time);
+                        p->response_time,
+                        p->arrival_time);
                 fflush(csv_file);
             } else {
                 p->priority = (p->priority < 2) ? p->priority + 1 : 2;

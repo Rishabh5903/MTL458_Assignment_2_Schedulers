@@ -1,3 +1,9 @@
-Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"sleep 7",Yes,No,7002,18446744073698359367,18446744073698352365,18446744073698359367
-"sleep 2",Yes,No,2002,18446744073698359367,18446744073698357365,18446744073698359367
+Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time,Arrival Time
+"sleep 7",Yes,No,7003,7003,0,7003,3184260
+"sleep 2",Yes,No,2004,2004,0,2004,3191263
+"sleep 2",Yes,No,2003,4007,2004,4007,3191263
+"sleep 7",Yes,No,7007,11014,4007,11014,3191263
+"sleep 5",Yes,No,5002,5002,0,5002,9233873
+"sleep 2",Yes,No,2002,2002,0,2002,9238875
+"sleep 5",Yes,No,5003,5003,0,5003,9732515
+"sleep 2",Yes,No,2003,2003,0,2003,9737518
