@@ -7,9 +7,8 @@
 void print_menu() {
     printf("\nOnline Scheduler Test Program\n");
     printf("1. Shortest Job First (SJF)\n");
-    printf("2. Shortest Remaining Time First (SRTF)\n");
-    printf("3. Multi-level Feedback Queue (MLFQ)\n");
-    printf("4. Exit\n");
+    printf("2. Multi-level Feedback Queue (MLFQ)\n");
+    printf("3. Exit\n");
     printf("Enter your choice: ");
 }
 
@@ -53,20 +52,8 @@ int main() {
                 }
                 break;
 
+
             case 2:
-                printf("Running Shortest Remaining Time First (SRTF) Scheduler\n");
-                while (1) {
-                    // Run scheduler
-                    ShortestRemainingTimeFirst(&process_list);
-
-                    // Check for real-time input
-                    if (!check_new_input(&process_list, &historical_data)) {
-                        break;
-                    }
-                }
-                break;
-
-            case 3:
                 printf("Running Multi-level Feedback Queue (MLFQ) Scheduler\n");
                 printf("Enter quantum for high priority queue: ");
                 scanf("%d", &quantum0);
@@ -89,7 +76,7 @@ int main() {
                 }
                 break;
 
-            case 4:
+            case 3:
                 printf("Exiting program.\n");
                 exit(0);
 

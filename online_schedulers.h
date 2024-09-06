@@ -27,8 +27,8 @@ typedef struct {
     uint64_t burst_time;
     bool started;
     int process_id;
-    int priority;  // For MLFQ
-    uint64_t remaining_time;  // For SRTF
+    int priority;
+    uint64_t remaining_time;
 } Process;
 
 typedef struct {
@@ -147,7 +147,6 @@ void execute_process(Process *p, uint64_t quantum) {
                 p->error = true;
                 break;
             }
-            usleep(1000);  // Sleep for 1ms
             elapsed_time = get_current_time_ms() - start_time;
         }
 
@@ -168,14 +167,25 @@ void execute_process(Process *p, uint64_t quantum) {
     }
 }
 
+void check_for_new_input_nonblocking(ProcessList *list, HistoricalDataList *historical_data) {
+    char new_command[MAX_COMMAND_LENGTH];
+    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);  // Get the current flags
+    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);  // Set stdin to non-blocking mode
 
+    while (fgets(new_command, MAX_COMMAND_LENGTH, stdin)) {
+        new_command[strcspn(new_command, "\n")] = 0;  // Remove newline
+        if (strlen(new_command) > 0) {
+            add_process(list, new_command, historical_data);
+        }
+    }
 
-
+    fcntl(STDIN_FILENO, F_SETFL, flags);  // Restore original stdin flags
+}
 
 void ShortestJobFirst(ProcessList *list) {
-    uint64_t current_time = 0;
+    uint64_t current_time = get_current_time_ms();
     int completed = 0;
-    HistoricalDataList historical_data = {0};
+    HistoricalDataList historical_data = {0};  // Store historical burst times
     FILE *csv_file = fopen("result_online_SJF.csv", "w");
     if (csv_file == NULL) {
         perror("Error opening CSV file");
@@ -184,38 +194,35 @@ void ShortestJobFirst(ProcessList *list) {
     fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
 
     while (1) {
-        // Check for new processes
-        char new_command[MAX_COMMAND_LENGTH];
-        if (fgets(new_command, MAX_COMMAND_LENGTH, stdin) != NULL) {
-            new_command[strcspn(new_command, "\n")] = 0;  // Remove newline
-            if (strlen(new_command) > 0) {
-                add_process(list, new_command, &historical_data);
-            }
-        }
+        check_for_new_input_nonblocking(list, &historical_data);  // Collect new inputs during each iteration
 
-        // Find the process with the shortest estimated burst time
         int shortest_job = -1;
         uint64_t min_burst_time = UINT64_MAX;
 
+        // Loop to find the shortest job based on historical burst time
         for (int i = 0; i < list->count; i++) {
-            if (!list->processes[i].finished && list->processes[i].remaining_time < min_burst_time) {
-                shortest_job = i;
-                min_burst_time = list->processes[i].remaining_time;
+            if (!list->processes[i].finished) {
+                uint64_t estimated_burst_time = get_historical_burst_time(&historical_data, list->processes[i].command);
+                if (estimated_burst_time < min_burst_time) {
+                    shortest_job = i;
+                    min_burst_time = estimated_burst_time;
+                }
             }
         }
 
         if (shortest_job != -1) {
             Process *p = &list->processes[shortest_job];
-            execute_process(p, p->remaining_time);
-            current_time += p->burst_time;
+            execute_process(p, UINT64_MAX);  // Run until completion
+            current_time = get_current_time_ms();
             update_process_times(p, current_time);
 
             if (p->finished) {
                 completed++;
                 if (!p->error) {
+                    // Update historical burst time only if no error occurred
                     update_historical_data(&historical_data, p->command, p->burst_time);
                 }
-                // Write result to CSV immediately
+                // Log process data to CSV
                 fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
                         p->command,
                         p->finished ? "Yes" : "No",
@@ -224,96 +231,26 @@ void ShortestJobFirst(ProcessList *list) {
                         p->turnaround_time,
                         p->waiting_time,
                         p->response_time);
-                fflush(csv_file);  // Ensure data is written immediately
+                fflush(csv_file);
             }
-        } else {
-            // No unfinished processes and no new input, we can exit
-            if (completed == list->count && feof(stdin)) {
-                break;
-            }
+        }
+
+        // Break when all processes are completed
+        if (completed == list->count && feof(stdin)) {
+            break;
         }
     }
 
     fclose(csv_file);
 }
-
-
-
-
-
-void ShortestRemainingTimeFirst(ProcessList *list) {
-    uint64_t current_time = 0;
-    int completed = 0;
-    HistoricalDataList historical_data = {0};
-    FILE *csv_file = fopen("result_online_SRTF.csv", "w");
-    if (csv_file == NULL) {
-        perror("Error opening CSV file");
-        return;
-    }
-    fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
-
-    while (1) {
-        // Check for new processes
-        char new_command[MAX_COMMAND_LENGTH];
-        if (fgets(new_command, MAX_COMMAND_LENGTH, stdin) != NULL) {
-            new_command[strcspn(new_command, "\n")] = 0;  // Remove newline
-            if (strlen(new_command) > 0) {
-                add_process(list, new_command, &historical_data);
-            }
-        }
-
-        // Find the process with the shortest remaining time
-        int shortest_remaining = -1;
-        uint64_t min_remaining_time = UINT64_MAX;
-
-        for (int i = 0; i < list->count; i++) {
-            if (!list->processes[i].finished && list->processes[i].remaining_time < min_remaining_time) {
-                shortest_remaining = i;
-                min_remaining_time = list->processes[i].remaining_time;
-            }
-        }
-
-        if (shortest_remaining != -1) {
-            Process *p = &list->processes[shortest_remaining];
-            execute_process(p, 100);  // Execute for 100ms time slice
-            current_time += 100;
-            update_process_times(p, current_time);
-
-            if (p->finished) {
-                completed++;
-                if (!p->error) {
-                    update_historical_data(&historical_data, p->command, p->burst_time);
-                }
-                // Write result to CSV immediately
-                fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
-                        p->command,
-                        p->finished ? "Yes" : "No",
-                        p->error ? "Yes" : "No",
-                        p->burst_time,
-                        p->turnaround_time,
-                        p->waiting_time,
-                        p->response_time);
-                fflush(csv_file);  // Ensure data is written immediately
-            }
-        } else {
-            // No unfinished processes and no new input, we can exit
-            if (completed == list->count && feof(stdin)) {
-                break;
-            }
-        }
-    }
-
-    fclose(csv_file);
-}
-
 
 
 
 
 void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int quantum2, int boostTime) {
-    uint64_t current_time = 0;
+    uint64_t current_time = get_current_time_ms();
     int completed = 0;
-    uint64_t last_boost_time = 0;
+    uint64_t last_boost_time = current_time;
     HistoricalDataList historical_data = {0};
     FILE *csv_file = fopen("result_online_MLFQ.csv", "w");
     if (csv_file == NULL) {
@@ -323,16 +260,9 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
     fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
 
     while (1) {
-        // Check for new processes
-        char new_command[MAX_COMMAND_LENGTH];
-        if (fgets(new_command, MAX_COMMAND_LENGTH, stdin) != NULL) {
-            new_command[strcspn(new_command, "\n")] = 0;  // Remove newline
-            if (strlen(new_command) > 0) {
-                add_process(list, new_command, &historical_data);
-            }
-        }
+        check_for_new_input_nonblocking(list, &historical_data);
 
-        // Priority boost
+        current_time = get_current_time_ms();
         if (current_time - last_boost_time >= boostTime) {
             for (int i = 0; i < list->count; i++) {
                 if (!list->processes[i].finished) {
@@ -342,7 +272,6 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
             last_boost_time = current_time;
         }
 
-        // Find the highest priority process
         int highest_priority = -1;
         int min_priority = 3;
 
@@ -358,7 +287,7 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
             int quantum = (p->priority == 0) ? quantum0 : (p->priority == 1) ? quantum1 : quantum2;
 
             execute_process(p, quantum);
-            current_time += (p->burst_time > quantum) ? quantum : p->burst_time;
+            current_time = get_current_time_ms();
             update_process_times(p, current_time);
 
             if (p->finished) {
@@ -366,7 +295,6 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
                 if (!p->error) {
                     update_historical_data(&historical_data, p->command, p->burst_time);
                 }
-                // Write result to CSV immediately
                 fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
                         p->command,
                         p->finished ? "Yes" : "No",
@@ -375,27 +303,22 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
                         p->turnaround_time,
                         p->waiting_time,
                         p->response_time);
-                fflush(csv_file);  // Ensure data is written immediately
+                fflush(csv_file);
             } else {
-                // Adjust priority
                 p->priority = (p->priority < 2) ? p->priority + 1 : 2;
             }
-        } else {
-            // No unfinished processes and no new input, we can exit
-            if (completed == list->count && feof(stdin)) {
-                break;
-            }
+        } else if (completed == list->count && feof(stdin)) {
+            break;
         }
 
-        // Update priority based on average burst time for new processes
         for (int i = 0; i < list->count; i++) {
             Process *p = &list->processes[i];
-            if (!p->finished && p->priority == 1) { // Only for new processes in mid-priority
+            if (!p->finished && !p->started) {
                 uint64_t avg_burst_time = get_historical_burst_time(&historical_data, p->command);
-                if (avg_burst_time < 1000) {  // If average burst time is less than 1 second
-                    p->priority = 0;  // Promote to highest priority
-                } else if (avg_burst_time > 2000) {  // If greater than 2 seconds
-                    p->priority = 2;  // Demote to lowest priority
+                if (avg_burst_time < 1000) {
+                    p->priority = 0;
+                } else if (avg_burst_time > 2000) {
+                    p->priority = 2;
                 }
             }
         }
