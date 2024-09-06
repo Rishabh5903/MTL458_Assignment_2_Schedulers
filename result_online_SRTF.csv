@@ -1,0 +1,7 @@
+Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
+"rgve",Yes,Yes,188,100,18446744073709551528,0
+"tve",Yes,Yes,97,0,18446744073709551519,0
+"thgetv",Yes,Yes,199,100,18446744073709551517,0
+"he",Yes,Yes,498,400,18446744073709551518,0
+"tr",Yes,Yes,11,0,18446744073709551605,0
+"evh",Yes,Yes,95,0,18446744073709551521,0

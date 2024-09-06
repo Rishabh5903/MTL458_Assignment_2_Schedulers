@@ -1,6 +1,6 @@
-Command,Finished,Error,Completion Time,Turnaround Time,Waiting Time,Response Time
-"sleep 1",Yes,No,3035,3035,3035,0
-"sleep 2",Yes,No,3035,3035,2035,1000
-"sleep 3",Yes,No,5001,5001,3001,2000
-"echo 'Hello, World!'",Yes,No,3001,3001,1,3000
-"ls -l",Yes,No,3035,3035,34,3001
+Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
+"dd if=/dev/zero of=testfile bs=1M count=100",Yes,No,136,240,104,0
+"for i in {1..50000}; do echo 'Looping'; done",Yes,No,0,100,100,100
+"vwgerb",Yes,Yes,132,272,140,100
+"date",Yes,No,2,202,200,200
+"echo 'Task completed!'",Yes,No,2,204,202,202
