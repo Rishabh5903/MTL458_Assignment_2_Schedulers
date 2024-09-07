@@ -50,12 +50,10 @@ typedef struct {
 
 uint64_t scheduler_start_time;
 
-uint64_t global_time = 0;
-
 uint64_t get_current_time_ms() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+    return (uint64_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000) - scheduler_start_time;
 }
 
 void print_context_switch(Process *p, uint64_t start_time, uint64_t end_time) {
@@ -126,52 +124,65 @@ void update_process_times(Process *p, uint64_t current_time) {
 }
 
 void execute_process(Process *p, uint64_t quantum) {
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child process
-        char *args[] = {"/bin/sh", "-c", p->command, NULL};
-        execvp(args[0], args);
-        exit(1);  // Exit if execvp fails
-    } else if (pid > 0) {
-        // Parent process
-        p->process_id = pid;
-        uint64_t start_time = get_current_time_ms();
-        int status;
-        uint64_t elapsed_time = 0;
+    pid_t pid;
 
-        while (elapsed_time < quantum) {
-            pid_t result = waitpid(pid, &status, WNOHANG);
-            if (result > 0) {
-                // Process finished
-                p->finished = true;
-                p->error = WIFEXITED(status) ? (WEXITSTATUS(status) != 0) : true;
-                break;
-            } else if (result < 0) {
-                // Error occurred
-                perror("waitpid");
-                p->finished = true;
-                p->error = true;
-                break;
-            }
-            elapsed_time = get_current_time_ms() - start_time;
+    if (p->process_id == -1) {
+        // If it's a new process, fork it
+        pid = fork();
+        if (pid == 0) {
+            // Child process
+            char *args[] = {"/bin/sh", "-c", p->command, NULL};
+            execvp(args[0], args);
+            exit(1);  // Exit if execvp fails
+        } else if (pid > 0) {
+            // Parent process
+            p->process_id = pid;
+        } else {
+            // Fork failed
+            perror("fork failed");
+            p->finished = true;
+            p->error = true;
+            return;
         }
-
-        if (!p->finished) {
-            kill(pid, SIGSTOP);
-        }
-
-        p->burst_time += elapsed_time;
-        p->remaining_time -= elapsed_time;
-        
-        uint64_t end_time = get_current_time_ms();
-        print_context_switch(p, start_time, end_time);
     } else {
-        // Fork failed
-        perror("fork failed");
-        p->finished = true;
-        p->error = true;
+        // If process was previously stopped, resume it
+        kill(p->process_id, SIGCONT);
     }
+
+    uint64_t start_time = get_current_time_ms();
+    int status;
+    uint64_t elapsed_time = 0;
+
+    // Loop to manage the execution within the quantum
+    while (elapsed_time < quantum) {
+        pid_t result = waitpid(p->process_id, &status, WNOHANG);
+        if (result > 0) {
+            // Process finished
+            p->finished = true;
+            p->error = WIFEXITED(status) ? (WEXITSTATUS(status) != 0) : true;
+            break;
+        } else if (result < 0) {
+            // Error occurred
+            perror("waitpid");
+            p->finished = true;
+            p->error = true;
+            break;
+        }
+        elapsed_time = get_current_time_ms() - start_time;
+    }
+
+    // If the process isn't finished, stop it
+    if (!p->finished) {
+        kill(p->process_id, SIGSTOP);
+    }
+
+    p->burst_time += elapsed_time;
+    p->remaining_time -= elapsed_time;
+
+    uint64_t end_time = get_current_time_ms();
+    print_context_switch(p, start_time, end_time);
 }
+
 
 void check_for_new_input_nonblocking(ProcessList *list, HistoricalDataList *historical_data) {
     char new_command[MAX_COMMAND_LENGTH];
@@ -270,6 +281,7 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
 
         current_time = get_current_time_ms();
         if (current_time - last_boost_time >= boostTime) {
+            // Boost all processes to medium priority
             for (int i = 0; i < list->count; i++) {
                 if (!list->processes[i].finished) {
                     list->processes[i].priority = 1;  // Reset to medium priority
@@ -281,6 +293,7 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
         int highest_priority = -1;
         int min_priority = 3;
 
+        // Find the process with the highest priority (lowest value) that isn't finished
         for (int i = 0; i < list->count; i++) {
             if (!list->processes[i].finished && list->processes[i].priority < min_priority) {
                 highest_priority = i;
@@ -290,6 +303,7 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
 
         if (highest_priority != -1) {
             Process *p = &list->processes[highest_priority];
+            // Determine the quantum based on priority
             int quantum = (p->priority == 0) ? quantum0 : (p->priority == 1) ? quantum1 : quantum2;
 
             execute_process(p, quantum);
@@ -312,12 +326,17 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
                         p->arrival_time);
                 fflush(csv_file);
             } else {
+                // If the process isn't finished, increase its priority
                 p->priority = (p->priority < 2) ? p->priority + 1 : 2;
             }
-        } else if (completed == list->count && feof(stdin)) {
+        }
+
+        // Terminate the loop if all processes are completed and no more input
+        if (completed == list->count && feof(stdin)) {
             break;
         }
 
+        // Boost logic to adjust priority based on historical burst times
         for (int i = 0; i < list->count; i++) {
             Process *p = &list->processes[i];
             if (!p->finished && !p->started) {
