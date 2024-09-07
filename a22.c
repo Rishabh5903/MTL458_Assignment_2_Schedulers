@@ -31,7 +31,7 @@ int main() {
     HistoricalDataList historical_data = {0};
 
     int choice;
-    int quantum0, quantum1, quantum2, boostTime;
+    int quantum0=200, quantum1=300, quantum2=500, boostTime;
 
     while (1) {
         print_menu();
@@ -55,15 +55,7 @@ int main() {
 
             case 2:
                 printf("Running Multi-level Feedback Queue (MLFQ) Scheduler\n");
-                printf("Enter quantum for high priority queue: ");
-                scanf("%d", &quantum0);
-                printf("Enter quantum for medium priority queue: ");
-                scanf("%d", &quantum1);
-                printf("Enter quantum for low priority queue: ");
-                scanf("%d", &quantum2);
-                printf("Enter priority boost time: ");
-                scanf("%d", &boostTime);
-                getchar(); // Consume newline
+
 
                 while (1) {
                     // Run MLFQ scheduler
