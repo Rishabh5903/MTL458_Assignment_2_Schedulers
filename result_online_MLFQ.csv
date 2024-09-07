@@ -1,5 +1,7 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"sleep 1",Yes,No,1002,1002,0,0
-"sleep 5'",Yes,Yes,1,301,300,300
-"sleep 7",Yes,No,6100,7002,902,0
-"sleep 3",Yes,No,1502,4603,3101,1601
+"echo ewrbger",Yes,No,1,301,300,300
+"sleep 3",Yes,No,3000,3002,2,0
+"echo verg",Yes,No,1,301,300,300
+"sleep 6",Yes,No,5400,6002,602,0
+"sleep 2",Yes,No,1701,2602,901,600
+"echo tbert",Yes,No,2,503,501,501

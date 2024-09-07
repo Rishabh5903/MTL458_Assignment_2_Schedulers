@@ -1,6 +1,6 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"dd if=/dev/zero of=testfile bs=1M count=100",Yes,No,134,243,109,0
-"for i in {1..50000}; do echo 'Looping'; done",Yes,No,3,3,0,100
-"sleep 1",Yes,No,964,1004,40,103
-"date",Yes,No,4,4,0,203
-"echo 'Task completed!'",Yes,No,2,2,0,207
+"dd if=/dev/zero of=testfile bs=1M count=100",Yes,No,100,205,105,0
+"for i in {1..50000}; do echo 'Looping'; done",Yes,No,1,1,0,100
+"bdtrhe",No,Yes,121,125,4,101
+"date",Yes,No,3,3,0,201
+"echo 'Task completed!'",Yes,No,1,1,0,204

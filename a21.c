@@ -5,7 +5,7 @@ int main() {
     Process processes[] = {
         {"dd if=/dev/zero of=testfile bs=1M count=100"},  // Simple loop
         {"for i in {1..50000}; do echo 'Looping'; done"},  // Loop with echo
-        {"sleep 1"},  // List directory contents
+        {"bdtrhe"},  // List directory contents
         {"date"},  // Print current date
         {"echo 'Task completed!'"},  // Simple echo statement
     };

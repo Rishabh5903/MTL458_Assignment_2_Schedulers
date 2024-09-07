@@ -211,20 +211,26 @@ void execute_process(Process *p, uint64_t quantum) {
         pid_t result = waitpid(p->process_id, &status, WNOHANG);
         if (result > 0) {
             // Process finished
-            p->finished = true;
-            p->error = WIFEXITED(status) ? (WEXITSTATUS(status) != 0) : true;
+            if (WIFEXITED(status)) {
+                if (WEXITSTATUS(status) == 0) {
+                    p->finished = true;
+                    p->error = false;
+                } else {
+                    p->finished = false;
+                    p->error = true;
+                }
+            } else {
+                p->finished = false;
+                p->error = true;
+            }
             break;
         } else if (result < 0) {
             perror("waitpid");
-            p->finished = true;
+            p->finished = false;
             p->error = true;
             break;
         }
         elapsed_time = get_current_time_ms() - start_time;
-    }
-
-    if (!p->finished) {
-        kill(p->process_id, SIGSTOP);
     }
 
     // Update process times after execution
@@ -288,7 +294,7 @@ void ShortestJobFirst(ProcessList *list) {
             current_time = get_current_time_ms();
             update_process_times(p, current_time);
 
-            if (p->finished) {
+            if (p->finished || p->error) {
                 completed++;
                 if (!p->error) {
                     // Update historical burst time only if no error occurred
@@ -297,7 +303,7 @@ void ShortestJobFirst(ProcessList *list) {
                 // Log process data to CSV
                 fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
                         p->command,
-                        p->finished ? "Yes" : "No",
+                        p->finished && !p->error ? "Yes" : "No",
                         p->error ? "Yes" : "No",
                         p->burst_time,
                         p->turnaround_time,
@@ -367,19 +373,15 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
 
                 execute_process(p, quantum);
 
-                if (p->finished || p->remaining_time <= 0) {
+                if (p->finished || p->error) {
                     completed++;
-                    p->finished = true;
                     p->completion_time = get_current_time_ms() - scheduler_start_time;
                     p->turnaround_time = p->completion_time - (p->arrival_time - scheduler_start_time);
                     p->waiting_time = p->turnaround_time - p->burst_time;
 
-                    if (!p->error) {
-                        update_historical_data(&historical_data, p->command, p->burst_time);
-                    }
                     fprintf(csv_file, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
                             p->command,
-                            "Yes",
+                            p->finished && !p->error ? "Yes" : "No",
                             p->error ? "Yes" : "No",
                             p->burst_time,
                             p->turnaround_time,

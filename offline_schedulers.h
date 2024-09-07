@@ -115,7 +115,7 @@ void write_results_to_csv(Process p[], int n, const char *filename) {
     for (int i = 0; i < n; i++) {
         fprintf(fp, "\"%s\",%s,%s,%lu,%lu,%lu,%lu\n",
                 p[i].command,
-                p[i].finished ? "Yes" : "No",
+                p[i].finished && !p[i].error ? "Yes" : "No",
                 p[i].error ? "Yes" : "No",
                 p[i].burst_time,
                 p[i].turnaround_time,
@@ -174,9 +174,15 @@ void FCFS(Process p[], int n) {
         p[i].burst_time = execution_end_time - execution_start_time;
 
         if (WIFEXITED(status)) {
-            p[i].finished = true;
-            p[i].error = WEXITSTATUS(status) != 0;
+            if (WEXITSTATUS(status) == 0) {
+                p[i].finished = true;
+                p[i].error = false;
+            } else {
+                p[i].finished = false;
+                p[i].error = true;
+            }
         } else {
+            p[i].finished = false;
             p[i].error = true;
         }
 
@@ -253,16 +259,21 @@ void RoundRobin(Process p[], int n, int quantum) {
             if (result > 0) {
                 process_finished = true;
                 if (WIFEXITED(status)) {
-                    p[i].finished = true;
-                    p[i].error = WEXITSTATUS(status) != 0;
+                    if (WEXITSTATUS(status) == 0) {
+                        p[i].finished = true;
+                        p[i].error = false;
+                    } else {
+                        p[i].finished = false;
+                        p[i].error = true;
+                    }
                 } else {
-                    p[i].finished = true;
+                    p[i].finished = false;
                     p[i].error = true;
                 }
                 elapsed_time = get_current_time_ms() - start_execution;
                 break;
             } else if (result < 0) {
-                p[i].finished = true;
+                p[i].finished = false;
                 p[i].error = true;
                 process_finished = true;
                 elapsed_time = get_current_time_ms() - start_execution;
@@ -270,6 +281,7 @@ void RoundRobin(Process p[], int n, int quantum) {
             }
             elapsed_time = get_current_time_ms() - start_execution;
         }
+
 
         uint64_t time_spent = elapsed_time;
         p[i].burst_time += time_spent;
@@ -373,16 +385,21 @@ void MultiLevelFeedbackQueue(Process p[], int n, int quantum0, int quantum1, int
                     if (result > 0) {
                         process_finished = true;
                         if (WIFEXITED(status)) {
-                            p[i].finished = true;
-                            p[i].error = WEXITSTATUS(status) != 0;
+                            if (WEXITSTATUS(status) == 0) {
+                                p[i].finished = true;
+                                p[i].error = false;
+                            } else {
+                                p[i].finished = false;
+                                p[i].error = true;
+                            }
                         } else {
-                            p[i].finished = true;
+                            p[i].finished = false;
                             p[i].error = true;
                         }
                         elapsed_time = get_current_time_ms() - start_execution;
                         break;
                     } else if (result < 0) {
-                        p[i].finished = true;
+                        p[i].finished = false;
                         p[i].error = true;
                         process_finished = true;
                         elapsed_time = get_current_time_ms() - start_execution;
