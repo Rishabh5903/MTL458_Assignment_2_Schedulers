@@ -213,13 +213,11 @@ void execute_process(Process *p, uint64_t quantum) {
             // Process finished
             p->finished = true;
             p->error = WIFEXITED(status) ? (WEXITSTATUS(status) != 0) : true;
-            elapsed_time = get_current_time_ms() - start_time;
             break;
         } else if (result < 0) {
             perror("waitpid");
             p->finished = true;
             p->error = true;
-            elapsed_time = get_current_time_ms() - start_time;
             break;
         }
         elapsed_time = get_current_time_ms() - start_time;
@@ -367,18 +365,12 @@ void MultiLevelFeedbackQueue(ProcessList *list, int quantum0, int quantum1, int 
                     p->started = true;
                 }
 
-                uint64_t start_exec_time = get_current_time_ms() - scheduler_start_time;
                 execute_process(p, quantum);
-                uint64_t end_exec_time = get_current_time_ms() - scheduler_start_time;
-                uint64_t execution_time = end_exec_time - start_exec_time;
-
-                p->burst_time += execution_time;
-                p->remaining_time -= execution_time;
 
                 if (p->finished || p->remaining_time <= 0) {
                     completed++;
                     p->finished = true;
-                    p->completion_time = end_exec_time;
+                    p->completion_time = get_current_time_ms() - scheduler_start_time;
                     p->turnaround_time = p->completion_time - (p->arrival_time - scheduler_start_time);
                     p->waiting_time = p->turnaround_time - p->burst_time;
 

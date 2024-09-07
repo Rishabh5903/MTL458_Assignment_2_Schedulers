@@ -1,5 +1,5 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"sleep 1",Yes,No,2004,1002,18446744073709550614,0
-"seep 5",Yes,Yes,134,367,233,300
-"sleep 7",Yes,No,11400,7267,18446744073709547483,0
-"sleep 4",Yes,No,5604,4602,18446744073709550614,600
+"sleep 1",Yes,No,1002,1002,0,0
+"sleep 5'",Yes,Yes,1,301,300,300
+"sleep 7",Yes,No,6100,7002,902,0
+"sleep 3",Yes,No,1502,4603,3101,1601
