@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <stdint.h>
+#include <errno.h>  
 
 #define MAX_PROCESSES 100
 #define MAX_COMMAND_LENGTH 256
@@ -189,6 +190,7 @@ void execute_process(Process *p, uint64_t quantum) {
             // Child process
             char *args[] = {"/bin/sh", "-c", p->command, NULL};
             execvp(args[0], args);
+            fprintf(stderr, "Error executing command: %s\n", p->command);
             exit(1);  // Exit if execvp fails
         } else if (pid > 0) {
             p->process_id = pid;
@@ -200,7 +202,14 @@ void execute_process(Process *p, uint64_t quantum) {
         }
     } else {
         // If process was previously stopped, resume it
-        kill(p->process_id, SIGCONT);
+        if (kill(p->process_id, SIGCONT) < 0) {
+            if (errno == ESRCH) {
+                // Process doesn't exist anymore
+                p->finished = true;
+                p->error = true;
+                return;
+            }
+        }
     }
 
     uint64_t start_time = get_current_time_ms();
@@ -212,25 +221,29 @@ void execute_process(Process *p, uint64_t quantum) {
         if (result > 0) {
             // Process finished
             if (WIFEXITED(status)) {
-                if (WEXITSTATUS(status) == 0) {
-                    p->finished = true;
-                    p->error = false;
-                } else {
-                    p->finished = false;
-                    p->error = true;
-                }
-            } else {
-                p->finished = false;
+                p->finished = true;
+                p->error = (WEXITSTATUS(status) != 0);
+            } else if (WIFSIGNALED(status)) {
+                p->finished = true;
                 p->error = true;
             }
             break;
         } else if (result < 0) {
-            perror("waitpid");
-            p->finished = false;
-            p->error = true;
+            if (errno == ECHILD) {
+                // No child process
+                p->finished = true;
+                p->error = true;
+            } else {
+                perror("waitpid");
+            }
             break;
         }
         elapsed_time = get_current_time_ms() - start_time;
+    }
+
+    // If the process is still running after the quantum, stop it
+    if (!p->finished && elapsed_time >= quantum) {
+        kill(p->process_id, SIGSTOP);
     }
 
     // Update process times after execution
