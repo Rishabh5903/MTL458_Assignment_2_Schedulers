@@ -31,7 +31,7 @@ int main() {
     HistoricalDataList historical_data = {0};
 
     int choice;
-    int quantum0=200, quantum1=300, quantum2=500, boostTime;
+    int quantum0=200, quantum1=300, quantum2=500, boostTime=1000;
 
     while (1) {
         print_menu();

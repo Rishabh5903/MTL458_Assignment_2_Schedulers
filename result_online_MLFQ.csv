@@ -1,4 +1,8 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"cgevr",No,Yes,89,89,0,0
-"echo erger",Yes,No,1,301,300,300
-"sleep 3",Yes,No,3001,3002,1,0
+"sleep 1",Yes,No,2004,1002,18446744073709550614,0
+"sleep 5",Yes,No,2800,5700,2900,0
+"sleep 4",Yes,No,2604,4802,2198,800
+"sleep 7",Yes,No,9000,7803,18446744073709550419,0
+"sleep 3",Yes,No,2400,5203,2803,2200
+"sleep 2",Yes,No,1404,5305,3901,3303
+"sleep 7",Yes,No,11402,10206,18446744073709550420,3203

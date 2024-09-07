@@ -1,2 +1,2 @@
-Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time,Arrival Time
-"sleep 7",Yes,No,7001,7001,0,7001,3579
+Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
+"sleep 1",Yes,No,1002,1003,1,1003
