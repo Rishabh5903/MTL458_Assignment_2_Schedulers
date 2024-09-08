@@ -145,7 +145,7 @@ uint64_t get_historical_burst_time(HistoricalDataList *list, const char *command
     return 1000; // Default 1000 if no historical data
 }
 
-Process* add_process(ProcessList *list, const char *command, HistoricalDataList *historical_data) {
+Process* add_process(ProcessList *list, const char *command, HistoricalDataList *historical_data, uint64_t arrival_time) {
     if (list->count >= MAX_PROCESSES) {
         printf("Maximum number of processes reached.\n");
         return NULL;
@@ -156,7 +156,7 @@ Process* add_process(ProcessList *list, const char *command, HistoricalDataList 
     p->command[MAX_COMMAND_LENGTH - 1] = '\0';
     p->finished = false;
     p->error = false;
-    p->arrival_time = get_current_time_ms();
+    p->arrival_time = arrival_time;
     p->start_time = 0;
     p->completion_time = 0;
     p->turnaround_time = 0;
@@ -175,12 +175,12 @@ Process* add_process(ProcessList *list, const char *command, HistoricalDataList 
 void update_process_times(Process *p, uint64_t current_time) {
     if (!p->started) {
         p->start_time = current_time;
-        p->response_time = p->start_time - p->arrival_time;
+        // p->response_time = p->start_time - p->arrival_time;
         p->started = true;
     }
-    p->completion_time = current_time;
-    p->turnaround_time = p->completion_time - p->arrival_time;
-    p->waiting_time = p->turnaround_time - p->burst_time;
+    // p->completion_time = current_time;
+    // p->turnaround_time = p->completion_time - p->arrival_time;
+    p->waiting_time = p->response_time;
 }
 
 void execute_process(Process *p, uint64_t quantum) {
@@ -254,20 +254,20 @@ void execute_process(Process *p, uint64_t quantum) {
     p->remaining_time -= elapsed_time;
 
     uint64_t end_time = get_current_time_ms();
+    p->turnaround_time= p->response_time+p->burst_time;
     // Print context switch only once
     print_context_switch(p, start_time, end_time);
 }
 
 
-void check_for_new_input_nonblocking(ProcessList *list, HistoricalDataList *historical_data) {
+void check_for_new_input_nonblocking(ProcessList *list, HistoricalDataList *historical_data, uint64_t arrival_time) {
     char new_command[MAX_COMMAND_LENGTH];
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);  // Get the current flags
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);  // Set stdin to non-blocking mode
-
     while (fgets(new_command, MAX_COMMAND_LENGTH, stdin)) {
         new_command[strcspn(new_command, "\n")] = 0;  // Remove newline
         if (strlen(new_command) > 0) {
-            add_process(list, new_command, historical_data);
+            add_process(list, new_command, historical_data, arrival_time);
         }
     }
 
@@ -285,7 +285,8 @@ void ShortestJobFirst() {
     }
     fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
     while (1) {
-        check_for_new_input_nonblocking(&process_list, &historical_data);
+        // uint64_t arrival_time = get_current_time_ms();
+        check_for_new_input_nonblocking(&process_list, &historical_data,current_time);
         int shortest_job = -1;
         uint64_t min_burst_time = UINT64_MAX;
 
@@ -301,8 +302,9 @@ void ShortestJobFirst() {
 
         if (shortest_job != -1) {
             Process *p = &process_list.processes[shortest_job];
+            p->response_time = current_time-(p->arrival_time);
             execute_process(p, UINT64_MAX);
-            current_time = get_current_time_ms();
+            // current_time = get_current_time_ms();
             update_process_times(p, current_time);
 
             if (p->finished || p->error) {
@@ -320,6 +322,7 @@ void ShortestJobFirst() {
                         p->response_time);
                 fflush(csv_file);
             }
+            current_time+=p->burst_time;
         }
 
         if (completed == process_list.count && feof(stdin)) {
@@ -345,11 +348,11 @@ bool check_and_enqueue_new_processes(ProcessList *list, HistoricalDataList *hist
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);  // Set stdin to non-blocking mode
 
     bool new_process_added = false;
-
+    uint16_t arrival_time = get_current_time_ms();
     while (fgets(new_command, MAX_COMMAND_LENGTH, stdin)) {
         new_command[strcspn(new_command, "\n")] = 0;  // Remove newline
         if (strlen(new_command) > 0) {
-            Process *new_p = add_process(list, new_command,historical_data);
+            Process *new_p = add_process(list, new_command,historical_data,arrival_time);
             if (new_p != NULL) {
                 uint64_t avg_burst_time = get_historical_burst_time(historical_data, new_command);
                 int priority;
