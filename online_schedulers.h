@@ -1,4 +1,3 @@
-// Include necessary headers and defines
 #pragma once
 
 #include <stdio.h>

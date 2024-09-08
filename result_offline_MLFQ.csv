@@ -1,4 +1,6 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"sleep 2",Yes,No,1001,2003,1002,0
-"pwd",Yes,No,1,101,100,100
-"sleep 2",Yes,No,1101,2103,1002,101
+"sleep 1",Yes,No,1000,5000,4000,0
+"sleep 7",Yes,No,4266,8269,4003,1000
+"sleep 5",Yes,No,1003,7003,6000,2000
+"sleep 4",Yes,No,1000,7003,6003,3000
+"sleep 3",Yes,No,1000,7003,6003,4000
