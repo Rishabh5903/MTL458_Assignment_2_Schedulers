@@ -1,4 +1,11 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"./dummy_p 3",Yes,No,3005,3005,3005,0
-"./dummy_p 1",Yes,No,1005,1005,1005,3005
-"command_to_throw_error",No,Yes,83,83,83,4010
+"./dummy_p 3",Yes,No,3004,3004,0,0
+"./dummy_p 1",Yes,No,1004,4008,3004,3004
+"command_to_throw_error",No,Yes,82,4090,4008,4008
+
+sleep 10
+sleep 9
+sleep 8
+sleep 10
+sleep 9
+sleep 8

@@ -13,7 +13,7 @@ void print_menu() {
 
 int main() {
     int choice;
-    int quantum0 = 200, quantum1 = 300, quantum2 = 500, boostTime = 1000;
+    int quantum0 = 1000, quantum1 = 2000, quantum2 = 3000, boostTime = 5000;
 
     while (1) {
         print_menu();
@@ -23,13 +23,11 @@ int main() {
         switch (choice) {
             case 1:
                 printf("Running Shortest Job First (SJF) Scheduler\n");
-                printf("Enter commands, one per line. Enter an empty line to finish input.\n");
                 ShortestJobFirst();
                 break;
 
             case 2:
                 printf("Running Multi-level Feedback Queue (MLFQ) Scheduler\n");
-                printf("Enter commands, one per line. Enter an empty line to finish input.\n");
                 MultiLevelFeedbackQueue(quantum0, quantum1, quantum2, boostTime);
                 break;
 

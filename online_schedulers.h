@@ -105,6 +105,8 @@ void free_queue(Queue *q) {
     free(q);
 }
 
+ProcessList process_list = {0};
+HistoricalDataList historical_data = {0};
 uint64_t scheduler_start_time;
 
 uint64_t get_current_time_ms() {
@@ -140,7 +142,7 @@ uint64_t get_historical_burst_time(HistoricalDataList *list, const char *command
             return list->data[i].avg_burst_time;
         }
     }
-    return 1000; // Default 1 second if no historical data
+    return 1000; // Default -1 if no historical data
 }
 
 Process* add_process(ProcessList *list, const char *command, HistoricalDataList *historical_data) {
@@ -252,7 +254,6 @@ void execute_process(Process *p, uint64_t quantum) {
     p->remaining_time -= elapsed_time;
 
     uint64_t end_time = get_current_time_ms();
-
     // Print context switch only once
     print_context_switch(p, start_time, end_time);
 }
@@ -277,26 +278,20 @@ void ShortestJobFirst() {
     scheduler_start_time = get_current_time_ms();
     uint64_t current_time = 0;
     int completed = 0;
-    HistoricalDataList historical_data = {0};
-    ProcessList *list = malloc(sizeof(ProcessList));  // Allocate memory for ProcessList
-    memset(list, 0, sizeof(ProcessList));  // Initialize to zero
     FILE *csv_file = fopen("result_online_SJF.csv", "w");
     if (csv_file == NULL) {
         perror("Error opening CSV file");
-        free(list);
         return;
     }
     fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
-
     while (1) {
-        check_for_new_input_nonblocking(list, &historical_data);
-
+        check_for_new_input_nonblocking(&process_list, &historical_data);
         int shortest_job = -1;
         uint64_t min_burst_time = UINT64_MAX;
 
-        for (int i = 0; i < list->count; i++) {
-            if (!list->processes[i].finished) {
-                uint64_t estimated_burst_time = get_historical_burst_time(&historical_data, list->processes[i].command);
+        for (int i = 0; i < process_list.count; i++) {
+            if (!process_list.processes[i].finished) {
+                uint64_t estimated_burst_time = get_historical_burst_time(&historical_data, process_list.processes[i].command);
                 if (estimated_burst_time < min_burst_time) {
                     shortest_job = i;
                     min_burst_time = estimated_burst_time;
@@ -305,7 +300,7 @@ void ShortestJobFirst() {
         }
 
         if (shortest_job != -1) {
-            Process *p = &list->processes[shortest_job];
+            Process *p = &process_list.processes[shortest_job];
             execute_process(p, UINT64_MAX);
             current_time = get_current_time_ms();
             update_process_times(p, current_time);
@@ -327,13 +322,12 @@ void ShortestJobFirst() {
             }
         }
 
-        if (completed == list->count && feof(stdin)) {
+        if (completed == process_list.count && feof(stdin)) {
             break;
         }
     }
 
     fclose(csv_file);
-    free(list);
 }
 
 bool check_and_enqueue_new_processes(ProcessList *list, HistoricalDataList *historical_data, Queue *queues[], int quantum0, int quantum1) {
@@ -398,13 +392,9 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
     uint64_t current_time = 0;
     int completed = 0;
     uint64_t last_boost_time = 0;
-    HistoricalDataList historical_data = {0};
-    ProcessList *list = malloc(sizeof(ProcessList));  // Allocate memory for ProcessList
-    memset(list, 0, sizeof(ProcessList));  // Initialize to zero
     FILE *csv_file = fopen("result_online_MLFQ.csv", "w");
     if (csv_file == NULL) {
         perror("Error opening CSV file");
-        free(list);
         return;
     }
     fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
@@ -417,27 +407,24 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
     while (1) {
         current_time = get_current_time_ms() - scheduler_start_time;
         
-        // Check for new input and directly add to appropriate queue
-        bool new_process_added = check_and_enqueue_new_processes(list, &historical_data, queues, quantum0, quantum1);
+        bool new_process_added = check_and_enqueue_new_processes(&process_list, &historical_data, queues, quantum0, quantum1);
 
-        // Check for priority boost
         if (current_time - last_boost_time >= boostTime) {
-            for (int i = 0; i < list->count; i++) {
-                if (!list->processes[i].finished) {
-                    list->processes[i].priority = 1;
+            for (int i = 0; i < process_list.count; i++) {
+                if (!process_list.processes[i].finished) {
+                    process_list.processes[i].priority = 1;
                     enqueue(queues[1], i);
                 }
             }
             last_boost_time = current_time;
         }
 
-        // Process all queues
         for (int priority = 0; priority < 3; priority++) {
             int quantum = (priority == 0) ? quantum0 : (priority == 1) ? quantum1 : quantum2;
             
             if (queues[priority]->front != NULL) {
                 int i = dequeue(queues[priority]);
-                Process *p = &list->processes[i];
+                Process *p = &process_list.processes[i];
 
                 if (p->finished) continue;
 
@@ -458,35 +445,31 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
                 if (p->finished || p->error) {
                     handle_finished_process(p, csv_file, &completed, &historical_data);
                 } else {
-                    // Move to lower priority queue if not finished
                     int next_priority = (priority < 2) ? priority + 1 : 2;
                     p->priority = next_priority;
                     enqueue(queues[next_priority], i);
                 }
 
-                // Check for new input after context switch
-                new_process_added = check_and_enqueue_new_processes(list, &historical_data, queues, quantum0, quantum1);
+                new_process_added = check_and_enqueue_new_processes(&process_list, &historical_data, queues, quantum0, quantum1);
 
-                // Check for priority boost after context switch
                 current_time = get_current_time_ms() - scheduler_start_time;
                 if (current_time - last_boost_time >= boostTime) {
-                    for (int i = 0; i < list->count; i++) {
-                        if (!list->processes[i].finished) {
-                            list->processes[i].priority = 1;
+                    for (int i = 0; i < process_list.count; i++) {
+                        if (!process_list.processes[i].finished) {
+                            process_list.processes[i].priority = 1;
                             enqueue(queues[1], i);
                         }
                     }
                     last_boost_time = current_time;
                 }
 
-                // Break if new process came
                 if (new_process_added) {
                     break;
                 }
             }
         }
 
-        if (completed == list->count && feof(stdin)) {
+        if (completed == process_list.count && feof(stdin)) {
             break;
         }
     }
@@ -495,5 +478,4 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
         free_queue(queues[i]);
     }
     fclose(csv_file);
-    free(list);
 }

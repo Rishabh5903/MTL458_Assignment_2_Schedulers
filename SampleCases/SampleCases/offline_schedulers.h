@@ -158,7 +158,7 @@ void FCFS(Process p[], int n) {
         if (process_pids[i] == 0) {
             execute_command(p[i].command);
         } else if (process_pids[i] < 0) {
-            p[i].finished = true;
+            p[i].finished = false;
             p[i].error = true;
             continue;
         }
@@ -169,8 +169,8 @@ void FCFS(Process p[], int n) {
         uint64_t execution_end_time = get_current_time_ms();
 
         p[i].completion_time = execution_end_time - start_time;
-        p[i].turnaround_time = p[i].completion_time - p[i].start_time;
-        p[i].waiting_time = p[i].turnaround_time;
+        p[i].turnaround_time = p[i].completion_time;
+        p[i].waiting_time = p[i].response_time;
         p[i].burst_time = execution_end_time - execution_start_time;
 
         if (WIFEXITED(status)) {

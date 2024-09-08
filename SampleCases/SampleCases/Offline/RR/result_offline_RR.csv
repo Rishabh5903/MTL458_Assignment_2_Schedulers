@@ -1,3 +1,4 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"./dummy_p 3",Yes,No,2004,3004,1000,0
-"./dummy_p 1",Yes,No,1000,3000,2000,1000
+"./dummy_p 3",Yes,No,1903,3005,1102,0
+"bhth",No,Yes,102,1102,1000,1000
+"./dummy_p 1",Yes,No,1000,3005,2005,1102

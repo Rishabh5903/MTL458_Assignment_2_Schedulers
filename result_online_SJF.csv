@@ -1,5 +1,8 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"sleep 1",Yes,No,1002,1003,1,1003
-"sleep 2",Yes,No,2002,3005,1003,3005
-"sleep 1",Yes,No,1002,3005,2003,3005
-"sleep 2",Yes,No,2002,6010,4008,6010
+"sleep 1",Yes,No,1003,1003,0,1003
+"slkeep 7",No,Yes,84,84,0,84
+"sleep 5'",No,Yes,1,2,1,2
+"sleep 7",Yes,No,7002,7002,0,7002
+"sleep 1",Yes,No,1002,1002,0,1002
+"sleep 1",Yes,No,1002,2004,1002,2004
+"sleep 7",Yes,No,7002,9010,2008,9010
