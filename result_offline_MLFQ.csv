@@ -1,4 +1,4 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
-"sleep 2",Yes,No,1101,2002,901,0
+"sleep 2",Yes,No,1100,2001,901,0
 "pwd",Yes,No,1,101,100,100
-"sleep 2",Yes,No,1000,2102,1102,101
+"sleep 2",Yes,No,1001,2102,1101,101

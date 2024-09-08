@@ -142,7 +142,7 @@ uint64_t get_historical_burst_time(HistoricalDataList *list, const char *command
             return list->data[i].avg_burst_time;
         }
     }
-    return 1000; // Default -1 if no historical data
+    return 1000; // Default 1000 if no historical data
 }
 
 Process* add_process(ProcessList *list, const char *command, HistoricalDataList *historical_data) {
@@ -330,6 +330,15 @@ void ShortestJobFirst() {
     fclose(csv_file);
 }
 
+bool is_new_command(HistoricalDataList *list, const char *command) {
+    for (int i = 0; i < list->count; i++) {
+        if (strcmp(list->data[i].command, command) == 0) {
+            return false;  // Command found in historical data
+        }
+    }
+    return true;  // Command not found, so it's new
+}
+
 bool check_and_enqueue_new_processes(ProcessList *list, HistoricalDataList *historical_data, Queue *queues[], int quantum0, int quantum1) {
     char new_command[MAX_COMMAND_LENGTH];
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);  // Get the current flags
@@ -344,8 +353,8 @@ bool check_and_enqueue_new_processes(ProcessList *list, HistoricalDataList *hist
             if (new_p != NULL) {
                 uint64_t avg_burst_time = get_historical_burst_time(historical_data, new_command);
                 int priority;
-                
-                if (avg_burst_time == 1000) {  // No historical data
+                bool check_new = is_new_command(historical_data, new_command);
+                if (check_new) {  // No historical data
                     priority = 1;  // Medium priority
                 } else {
                     // Assign priority based on average burst time
