@@ -409,7 +409,7 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
         perror("Error opening CSV file");
         return;
     }
-    fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time\n");
+    fprintf(csv_file, "Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time, Arrival time\n");
 
     Queue *queues[3];
     for (int i = 0; i < 3; i++) {
@@ -419,27 +419,35 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
     while (1) {
         current_time = get_current_time_ms() - scheduler_start_time;
         
+        // Check and enqueue new processes if available
         bool new_process_added = check_and_enqueue_new_processes(&process_list, &historical_data, queues, quantum0, quantum1);
 
+        // Boost process priorities if required
         if (current_time - last_boost_time >= boostTime) {
             for (int i = 0; i < process_list.count; i++) {
                 if (!process_list.processes[i].finished) {
-                    process_list.processes[i].priority = 1;
-                    enqueue(queues[1], i);
+                    process_list.processes[i].priority = 0;
+                    enqueue(queues[0], i);  // Move all processes back to the highest priority queue
                 }
             }
             last_boost_time = current_time;
         }
 
+        // Main loop over the priority queues
+        bool process_handled = false;  // Flag to track if any process was handled
+
         for (int priority = 0; priority < 3; priority++) {
             int quantum = (priority == 0) ? quantum0 : (priority == 1) ? quantum1 : quantum2;
-            
-            if (queues[priority]->front != NULL) {
+
+            // Process each queue until it's empty
+            while (queues[priority]->front != NULL) {
                 int i = dequeue(queues[priority]);
                 Process *p = &process_list.processes[i];
 
+                // Skip already finished processes
                 if (p->finished) continue;
 
+                // If the process hasn't started yet, set start time and response time
                 if (!p->started) {
                     p->start_time = current_time;
                     p->response_time = p->start_time - (p->arrival_time - scheduler_start_time);
@@ -449,11 +457,9 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
                 uint64_t process_start_time = get_current_time_ms() - scheduler_start_time;
                 execute_process(p, quantum);
                 uint64_t process_end_time = get_current_time_ms() - scheduler_start_time;
-
-                uint64_t time_spent = process_end_time - process_start_time;
-                p->burst_time += time_spent;
                 current_time = process_end_time;
 
+                // Mark process as finished or enqueue in the next priority queue if not
                 if (p->finished || p->error) {
                     handle_finished_process(p, csv_file, &completed, &historical_data);
                 } else {
@@ -462,30 +468,34 @@ void MultiLevelFeedbackQueue(int quantum0, int quantum1, int quantum2, int boost
                     enqueue(queues[next_priority], i);
                 }
 
-                new_process_added = check_and_enqueue_new_processes(&process_list, &historical_data, queues, quantum0, quantum1);
-
-                current_time = get_current_time_ms() - scheduler_start_time;
+                // Boost priority check again after processing
                 if (current_time - last_boost_time >= boostTime) {
-                    for (int i = 0; i < process_list.count; i++) {
-                        if (!process_list.processes[i].finished) {
-                            process_list.processes[i].priority = 1;
-                            enqueue(queues[1], i);
+                    for (int j = 0; j < process_list.count; j++) {
+                        if (!process_list.processes[j].finished) {
+                            process_list.processes[j].priority = 0;
+                            enqueue(queues[0], j);  // Boost all to highest priority
                         }
                     }
                     last_boost_time = current_time;
                 }
 
+                process_handled = true;  // A process was handled, so the loop will continue
+
+                // If a new process was added, restart the priority loop from the beginning
                 if (new_process_added) {
-                    break;
+                    priority = -1;  // Reset priority to -1, so it becomes 0 in the next iteration
+                    break;  // Break out of the current priority loop to restart from highest priority
                 }
             }
         }
 
-        if (completed == process_list.count && feof(stdin)) {
+        // If no processes were handled and no more input is available, break the loop
+        if (completed == process_list.count && feof(stdin) && !process_handled) {
             break;
         }
     }
 
+    // Free all queues
     for (int i = 0; i < 3; i++) {
         free_queue(queues[i]);
     }
