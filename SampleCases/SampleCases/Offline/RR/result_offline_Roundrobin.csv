@@ -1,0 +1,3 @@
+Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
+./dummy_p 1,Yes,No,2010,4017,2007,1002
+./dummy_p 3,Yes,No,3007,5018,2011,0

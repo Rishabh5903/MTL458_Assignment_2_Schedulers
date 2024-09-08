@@ -1,2 +1,5 @@
 Command,Finished,Error,Burst Time,Turnaround Time,Waiting Time,Response Time
 "sleep 1",Yes,No,1002,1003,1,1003
+"sleep 2",Yes,No,2002,3005,1003,3005
+"sleep 1",Yes,No,1002,3005,2003,3005
+"sleep 2",Yes,No,2002,6010,4008,6010

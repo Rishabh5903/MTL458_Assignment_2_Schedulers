@@ -5,5 +5,5 @@ int main(){
     Process p[n];
     p[0].command = "./dummy_p 3";
     p[1].command = "./dummy_p 1";
-    RR(p, n, 1000);
+    RoundRobin(p, n, 1000);
 }
